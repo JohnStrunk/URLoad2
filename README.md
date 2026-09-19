@@ -4,9 +4,7 @@ This is a template to serve as a starting point for new repos.
 
 ## Features
 
-- Pre-configured CI/CD pipeline that runs pre-commit and ensures that the
-  devcontainer builds successfully.
-- A basic devcontainer setup
+- Pre-configured CI/CD pipeline that runs pre-commit.
 - Mergify configuration to enable merging of PRs. See
   [.github/mergify.yml](.github/mergify.yml) for details.
 - Renovate configuration to keep dependencies up to date. See
@@ -25,5 +23,3 @@ This is a template to serve as a starting point for new repos.
     branch](https://dashboard.mergify.com/queues/deployment/enforcement).
 - [ ] Add a license to the project
 - [ ] Update the README with project-specific information
-- [ ] Update the devcontainer configuration based on the project's language
-  and dev tools
