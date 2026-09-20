@@ -1,6 +1,6 @@
 module github.com/JohnStrunk/URLoad2
 
-go 1.24.0
+go 1.26.0
 
 require (
 	github.com/chzyer/readline v1.5.1
@@ -16,5 +16,6 @@ require (
 	github.com/hashicorp/go-memdb v1.3.5 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
-	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad // indirect
+	golang.org/x/net v0.59.0
+	golang.org/x/sys v0.48.0 // indirect
 )

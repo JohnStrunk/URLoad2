@@ -30,9 +30,33 @@ Run the interactive REPL:
 
 Available commands within the REPL:
 
+- `add <url>`: Append a URL to the end of the list
+- `get`: Download each URL in the list, saving it as a file in the session
+  target directory
+- `head <n>`: Keep the first n URLs in the list, discarding the rest
+- `tail <n>`: Keep the last n URLs in the list, discarding the rest
+- `href`: For each URL in the list, retrieve it and append each `<a href>`
+  target as an absolute URL; original URLs are removed
+- `img`: For each URL in the list, retrieve it and append each `<img src>`
+  target as an absolute URL; original URLs are removed
+- `sort`: Sort the URL list alphabetically
+- `uniq`: Remove duplicate URLs from the list, preserving original order
+- `list`: Display the current list of URLs
+- `clear`: Clear the URL list
 - `help` or `?`: Display available commands
 - `version`: Display version information
 - `exit` or `quit`: Terminate the REPL session
+
+The REPL prompt dynamically displays the target directory and current
+length of the URL list (e.g., `URLoad2 [0000] (0)>`).
+On startup, the REPL determines its download target directory (a 4-digit
+numbered subdirectory of cwd, e.g. `0000`). The target directory is created
+upon the first `get` command.
+When fetching URLs, progress and HTTP response codes are displayed in real
+time:
+
+- Scanning (`href`/`img`): `Scanning <url> => 200 (found 4)` (or status code)
+- Downloading (`get`): `Downloading <url> => 200 [file.png]` (or status code)
 
 The REPL supports tab completion for all commands.
 
