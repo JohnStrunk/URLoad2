@@ -1,25 +1,51 @@
-# Project template
+# URLoad2
 
-This is a template to serve as a starting point for new repos.
+URLoad2 is a statically linked Go REPL (Read-Eval-Print Loop) application.
 
-## Features
+## Overview
 
-- Pre-configured CI/CD pipeline that runs pre-commit.
-- Mergify configuration to enable merging of PRs. See
-  [.github/mergify.yml](.github/mergify.yml) for details.
-- Renovate configuration to keep dependencies up to date. See
-  [.github/renovate.json5](.github/renovate.json5) for details.
-- Pre-commit configuration to ensure code quality. See
-  [.pre-commit-config.yaml](.pre-commit-config.yaml) for details.
+- **Language:** Go
+- **Binary:** Statically linked executable (`CGO_ENABLED=0`)
+- **Spec-Driven:** Functionality specified via EARS (Easy Approach to
+  Requirements Syntax) in Gherkin feature files executed with `godog`
+- **Quality & CI:** Automated linting via `pre-commit` and `golangci-lint`, with
+  automated testing and building in GitHub Actions CI
 
-## New project checklist
+## Building
 
-- [ ] Adjust the Mergify configuration to customize the merge conditions
-  - Consider enabling [Merge
-    protections](https://docs.mergify.com/merge-protections/) to enable
-    `Depends-On: <PR#>`, `Merge-After: <ISO 8601>`.
-  - Consider enforcing the merge queue (only allowing Mergify to merge PRs) by
-    [protecting the default
-    branch](https://dashboard.mergify.com/queues/deployment/enforcement).
-- [ ] Add a license to the project
-- [ ] Update the README with project-specific information
+To build the statically linked binary:
+
+```bash
+CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/urload2 ./cmd/urload2
+```
+
+## Running
+
+Run the interactive REPL:
+
+```bash
+./bin/urload2
+```
+
+Available commands within the REPL:
+
+- `help`: Display available commands
+- `version`: Display version information
+- `exit` or `quit`: Terminate the REPL session
+
+## Testing
+
+Run all unit tests and Godog feature specifications:
+
+```bash
+go test -v ./...
+```
+
+## Linting and Code Quality
+
+Format and lint files using `pre-commit` and `golangci-lint`:
+
+```bash
+pre-commit run --all-files
+golangci-lint run ./...
+```
