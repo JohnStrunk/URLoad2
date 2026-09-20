@@ -19,5 +19,5 @@ func (r *REPL) RunInteractiveForTest(ctx context.Context, file *os.File) error {
 
 // EvalForTest exposes eval for testing.
 func (r *REPL) EvalForTest(line string) (bool, error) {
-	return r.eval(line)
+	return r.eval(context.Background(), line)
 }

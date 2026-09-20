@@ -145,3 +145,30 @@ func TestProperty_EARS_UnrecognizedCommandReportsErrorAndContinues(t *testing.T)
 		}
 	})
 }
+
+// EARS: While running, when displaying the command prompt, the REPL shall include the current length of the list.
+func TestProperty_EARS_PromptReflectsListLength(t *testing.T) {
+	rapid.Check(t, func(rt *rapid.T) {
+		numAdds := rapid.IntRange(0, 10).Draw(rt, "numAdds")
+		var input strings.Builder
+		for i := 0; i < numAdds; i++ {
+			fmt.Fprintf(&input, "add http://example.com/%d\n", i)
+		}
+		input.WriteString("exit\n")
+
+		var out bytes.Buffer
+		r := repl.New(strings.NewReader(input.String()), &out)
+		err := r.Run(context.Background())
+		if err != nil {
+			t.Fatalf("unexpected error running REPL: %v", err)
+		}
+
+		actual := out.String()
+		for i := 0; i <= numAdds; i++ {
+			expectedPrompt := fmt.Sprintf("urload2 [%d]> ", i)
+			if !strings.Contains(actual, expectedPrompt) {
+				t.Fatalf("expected output to contain prompt %q, got %q", expectedPrompt, actual)
+			}
+		}
+	})
+}

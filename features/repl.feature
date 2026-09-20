@@ -1,11 +1,18 @@
 Feature: urload2 REPL application
 
-  Rule: When the REPL starts, the REPL shall display an interactive prompt.
+  Rule: While running, when displaying the prompt, the REPL shall include the current length of the URL list.
 
-    Scenario: Prompt is displayed upon starting
+    Scenario: Prompt displays initial count of zero
       Given the REPL application is initialized
       When the REPL is started with no input
-      Then the output should contain "urload2> "
+      Then the output should contain "urload2 [0]> "
+
+    Scenario: Prompt updates dynamically as URLs are added
+      Given the REPL application is initialized
+      When the user enters "add http://example.com/1"
+      And the user enters "add http://example.com/2"
+      Then the output should contain "urload2 [1]> "
+      And the output should contain "urload2 [2]> "
 
   Rule: While running, when the user inputs the exit command, the REPL shall terminate gracefully.
 
@@ -27,6 +34,12 @@ Feature: urload2 REPL application
       Given the REPL application is initialized
       When the user enters "help"
       Then the output should contain "Available commands:"
+      And the output should contain "add <url>"
+      And the output should contain "get"
+      And the output should contain "head <n>"
+      And the output should contain "tail <n>"
+      And the output should contain "list"
+      And the output should contain "clear"
       And the output should contain "help"
       And the output should contain "exit"
 
@@ -45,15 +58,22 @@ Feature: urload2 REPL application
       Given the REPL application is initialized
       When the user requests completion for "he"
       Then the completion candidates should include "help"
+      And the completion candidates should include "head"
 
     Scenario: Tab completion returns all matches for empty input
       Given the REPL application is initialized
       When the user requests completion for ""
-      Then the completion candidates should include "help"
-      And the completion candidates should include "?"
-      And the completion candidates should include "version"
+      Then the completion candidates should include "add"
+      And the completion candidates should include "clear"
       And the completion candidates should include "exit"
+      And the completion candidates should include "get"
+      And the completion candidates should include "head"
+      And the completion candidates should include "help"
+      And the completion candidates should include "list"
       And the completion candidates should include "quit"
+      And the completion candidates should include "tail"
+      And the completion candidates should include "version"
+      And the completion candidates should include "?"
 
   Rule: If an unrecognized command is entered, then the REPL shall display an error message and continue running.
 
@@ -61,3 +81,100 @@ Feature: urload2 REPL application
       Given the REPL application is initialized
       When the user enters "unknown_cmd"
       Then the output should report unknown command "unknown_cmd"
+
+  Rule: When the user enters the add command with a URL, the REPL shall append the URL to the end of the URL list.
+
+    Scenario: Add URL appends to list
+      Given the REPL application is initialized
+      When the user enters "add http://example.com/first"
+      And the user enters "add http://example.com/second"
+      And the user enters "list"
+      Then the output should contain "http://example.com/first"
+      And the output should contain "http://example.com/second"
+
+  Rule: If the add command is entered without a URL, then the REPL shall display an error message and continue running.
+
+    Scenario: Add command without argument displays error
+      Given the REPL application is initialized
+      When the user enters "add"
+      Then the output should contain "error: add requires a URL"
+
+  Rule: When the user enters the list command, the REPL shall display the current list of URLs.
+
+    Scenario: List command displays all stored URLs
+      Given the REPL application is initialized
+      When the user enters "add http://example.com/item1"
+      And the user enters "list"
+      Then the output should contain "http://example.com/item1"
+
+  Rule: When the user enters the clear command, the REPL shall remove all URLs from the URL list.
+
+    Scenario: Clear command removes all URLs from list
+      Given the REPL application is initialized
+      When the user enters "add http://example.com/item1"
+      And the user enters "clear"
+      Then the output should contain "urload2 [0]> "
+
+  Rule: When the user enters the head command with a count, the REPL shall keep the first n URLs in the list and discard the rest.
+
+    Scenario: Head command keeps first n URLs
+      Given the REPL application is initialized
+      When the user enters "add http://example.com/1"
+      And the user enters "add http://example.com/2"
+      And the user enters "add http://example.com/3"
+      And the user enters "head 2"
+      And the user enters "list"
+      Then the output should contain "http://example.com/1"
+      And the output should contain "http://example.com/2"
+      And the output should not contain "http://example.com/3"
+
+  Rule: If the head command is entered without a valid count, then the REPL shall display an error message and continue running.
+
+    Scenario: Head command without count displays error
+      Given the REPL application is initialized
+      When the user enters "head"
+      Then the output should contain "error: head requires a count"
+
+  Rule: When the user enters the tail command with a count, the REPL shall keep the last n URLs in the list and discard the rest.
+
+    Scenario: Tail command keeps last n URLs
+      Given the REPL application is initialized
+      When the user enters "add http://example.com/1"
+      And the user enters "add http://example.com/2"
+      And the user enters "add http://example.com/3"
+      And the user enters "tail 2"
+      And the user enters "list"
+      Then the output should not contain "http://example.com/1"
+      And the output should contain "http://example.com/2"
+      And the output should contain "http://example.com/3"
+
+  Rule: If the tail command is entered without a valid count, then the REPL shall display an error message and continue running.
+
+    Scenario: Tail command without count displays error
+      Given the REPL application is initialized
+      When the user enters "tail"
+      Then the output should contain "error: tail requires a count"
+
+  Rule: When the REPL starts, the REPL shall determine the download target directory as one greater than the highest numbered directory starting at 0000.
+
+    Scenario: Target directory is determined upon startup
+      Given a working directory with directory "0002"
+      When the REPL application is initialized in that working directory
+      Then the download target directory name should be "0003"
+
+  Rule: While running without executing the get command, the REPL shall not create the download target directory.
+
+    Scenario: Download target directory is not created before get
+      Given the REPL application is initialized
+      When the user enters "add http://example.com/1"
+      Then the download target directory should not exist
+
+  Rule: When the user enters the get command, the REPL shall create the target directory and save each downloaded URL as a file.
+
+    Scenario: Get command downloads URLs and saves them to target directory
+      Given a test web server serving "hello world" at "/page.html"
+      And the REPL application is initialized
+      When the user enters "add <server>/page.html"
+      And the user enters "get"
+      Then the download target directory should exist
+      And the file "page.html" in the target directory should contain "hello world"
