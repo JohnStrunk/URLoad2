@@ -271,3 +271,68 @@ func TestConcurrentAccess(t *testing.T) {
 		t.Fatalf("expected len 50 after concurrent adds, got %d", l.Len())
 	}
 }
+
+func TestSort(t *testing.T) {
+	l := urllist.New()
+	_ = l.Add("https://example.com/z")
+	_ = l.Add("https://example.com/a")
+	_ = l.Add("https://example.com/m")
+
+	l.Sort()
+
+	expected := []string{
+		"https://example.com/a",
+		"https://example.com/m",
+		"https://example.com/z",
+	}
+	got := l.Get()
+	for i := range expected {
+		if got[i] != expected[i] {
+			t.Errorf("at index %d: expected %q, got %q", i, expected[i], got[i])
+		}
+	}
+}
+
+func TestUniq(t *testing.T) {
+	l := urllist.New()
+	_ = l.Add("https://example.com/b")
+	_ = l.Add("https://example.com/a")
+	_ = l.Add("https://example.com/b")
+	_ = l.Add("https://example.com/c")
+	_ = l.Add("https://example.com/a")
+
+	l.Uniq()
+
+	expected := []string{
+		"https://example.com/b",
+		"https://example.com/a",
+		"https://example.com/c",
+	}
+	got := l.Get()
+	if len(got) != len(expected) {
+		t.Fatalf("expected len %d, got %d", len(expected), len(got))
+	}
+	for i := range expected {
+		if got[i] != expected[i] {
+			t.Errorf("at index %d: expected %q, got %q", i, expected[i], got[i])
+		}
+	}
+}
+
+func TestReplace(t *testing.T) {
+	l := urllist.New()
+	_ = l.Add("https://example.com/old")
+
+	newURLs := []string{"https://example.com/1", "https://example.com/2"}
+	l.Replace(newURLs)
+
+	if l.Len() != 2 {
+		t.Fatalf("expected len 2 after replace, got %d", l.Len())
+	}
+	got := l.Get()
+	for i := range newURLs {
+		if got[i] != newURLs[i] {
+			t.Errorf("at index %d: expected %q, got %q", i, newURLs[i], got[i])
+		}
+	}
+}

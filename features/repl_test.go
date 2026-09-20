@@ -19,14 +19,15 @@ import (
 )
 
 type replFeature struct {
-	in          *bytes.Buffer
-	out         *bytes.Buffer
-	err         error
-	completions []string
-	workingDir  string
-	server      *httptest.Server
-	urlList     *urllist.List
-	downloader  *downloader.Downloader
+	in           *bytes.Buffer
+	out          *bytes.Buffer
+	err          error
+	completions  []string
+	workingDir   string
+	server       *httptest.Server
+	serverRoutes map[string]string
+	urlList      *urllist.List
+	downloader   *downloader.Downloader
 }
 
 func (r *replFeature) reset() {
@@ -34,6 +35,7 @@ func (r *replFeature) reset() {
 		r.server.Close()
 		r.server = nil
 	}
+	r.serverRoutes = nil
 	if r.workingDir != "" {
 		_ = os.RemoveAll(r.workingDir)
 		r.workingDir = ""
@@ -99,6 +101,9 @@ func (r *replFeature) theUserRequestsCompletionFor(prefix string) error {
 }
 
 func (r *replFeature) theOutputShouldContain(expected string) error {
+	if r.server != nil {
+		expected = strings.ReplaceAll(expected, "<server>", r.server.URL)
+	}
 	actual := r.out.String()
 	if !strings.Contains(actual, expected) {
 		return fmt.Errorf("expected output to contain %q, but got %q", expected, actual)
@@ -107,6 +112,9 @@ func (r *replFeature) theOutputShouldContain(expected string) error {
 }
 
 func (r *replFeature) theOutputShouldNotContain(expected string) error {
+	if r.server != nil {
+		expected = strings.ReplaceAll(expected, "<server>", r.server.URL)
+	}
 	actual := r.out.String()
 	if strings.Contains(actual, expected) {
 		return fmt.Errorf("expected output to not contain %q, but got %q", expected, actual)
@@ -192,13 +200,17 @@ func (r *replFeature) theDownloadTargetDirectoryShouldExist() error {
 }
 
 func (r *replFeature) aTestWebServerServingAt(content, path string) error {
-	r.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if req.URL.Path == path {
-			fmt.Fprint(w, content)
-			return
-		}
-		http.NotFound(w, req)
-	}))
+	if r.server == nil {
+		r.serverRoutes = make(map[string]string)
+		r.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			if body, ok := r.serverRoutes[req.URL.Path]; ok {
+				fmt.Fprint(w, body)
+				return
+			}
+			http.NotFound(w, req)
+		}))
+	}
+	r.serverRoutes[path] = content
 	return nil
 }
 

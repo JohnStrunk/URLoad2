@@ -13,6 +13,7 @@ import (
 	"github.com/chzyer/readline"
 
 	"github.com/JohnStrunk/URLoad2/internal/downloader"
+	"github.com/JohnStrunk/URLoad2/internal/extractor"
 	"github.com/JohnStrunk/URLoad2/internal/urllist"
 )
 
@@ -31,9 +32,13 @@ func Commands() []string {
 		"get",
 		"head",
 		"help",
+		"href",
+		"img",
 		"list",
 		"quit",
+		"sort",
 		"tail",
+		"uniq",
 		"version",
 		"?",
 	}
@@ -75,6 +80,7 @@ type REPL struct {
 	urlList            *urllist.List
 	downloader         Downloader
 	downloaderExplicit bool
+	httpClient         extractor.HTTPGetter
 }
 
 // Option configures a REPL instance.
@@ -106,6 +112,13 @@ func WithDownloader(d Downloader) Option {
 func WithBaseDir(dir string) Option {
 	return func(r *REPL) {
 		r.baseDir = dir
+	}
+}
+
+// WithHTTPClient sets a custom HTTP client for extraction operations.
+func WithHTTPClient(client extractor.HTTPGetter) Option {
+	return func(r *REPL) {
+		r.httpClient = client
 	}
 }
 
@@ -280,9 +293,13 @@ func (r *REPL) eval(ctx context.Context, line string) (bool, error) {
 			"  get        Download all URLs in the list to the target directory\n" +
 			"  head <n>   Keep the first n URLs in the list\n" +
 			"  help, ?    Show available commands\n" +
+			"  href       Extract all <a href> targets from URLs in list and replace them\n" +
+			"  img        Extract all <img src> targets from URLs in list and replace them\n" +
 			"  list       Display the current list of URLs\n" +
 			"  quit       Exit the REPL\n" +
+			"  sort       Sort the list of URLs alphabetically\n" +
 			"  tail <n>   Keep the last n URLs in the list\n" +
+			"  uniq       Remove duplicate URLs from the list\n" +
 			"  version    Show version information\n"
 		if _, err := fmt.Fprint(r.out, helpText); err != nil {
 			return false, fmt.Errorf("failed to write help: %w", err)
@@ -381,6 +398,46 @@ func (r *REPL) eval(ctx context.Context, line string) (bool, error) {
 			}
 			return false, nil
 		}
+		return false, nil
+
+	case "sort":
+		r.urlList.Sort()
+		return false, nil
+
+	case "uniq":
+		r.urlList.Uniq()
+		return false, nil
+
+	case "href":
+		current := r.urlList.Get()
+		var newURLs []string
+		for _, u := range current {
+			targets, err := extractor.ExtractHrefs(ctx, r.httpClient, u)
+			if err != nil {
+				if _, writeErr := fmt.Fprintf(r.out, "error extracting hrefs from %s: %v\n", u, err); writeErr != nil {
+					return false, fmt.Errorf("failed to write href error: %w", writeErr)
+				}
+				continue
+			}
+			newURLs = append(newURLs, targets...)
+		}
+		r.urlList.Replace(newURLs)
+		return false, nil
+
+	case "img":
+		current := r.urlList.Get()
+		var newURLs []string
+		for _, u := range current {
+			targets, err := extractor.ExtractImgs(ctx, r.httpClient, u)
+			if err != nil {
+				if _, writeErr := fmt.Fprintf(r.out, "error extracting images from %s: %v\n", u, err); writeErr != nil {
+					return false, fmt.Errorf("failed to write img error: %w", writeErr)
+				}
+				continue
+			}
+			newURLs = append(newURLs, targets...)
+		}
+		r.urlList.Replace(newURLs)
 		return false, nil
 
 	default:

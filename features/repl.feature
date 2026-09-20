@@ -41,6 +41,10 @@ Feature: urload2 REPL application
       And the output should contain "list"
       And the output should contain "clear"
       And the output should contain "help"
+      And the output should contain "href"
+      And the output should contain "img"
+      And the output should contain "sort"
+      And the output should contain "uniq"
       And the output should contain "exit"
 
   Rule: While running, when the user inputs the "?" command, the REPL shall display available commands.
@@ -69,9 +73,13 @@ Feature: urload2 REPL application
       And the completion candidates should include "get"
       And the completion candidates should include "head"
       And the completion candidates should include "help"
+      And the completion candidates should include "href"
+      And the completion candidates should include "img"
       And the completion candidates should include "list"
       And the completion candidates should include "quit"
+      And the completion candidates should include "sort"
       And the completion candidates should include "tail"
+      And the completion candidates should include "uniq"
       And the completion candidates should include "version"
       And the completion candidates should include "?"
 
@@ -178,3 +186,72 @@ Feature: urload2 REPL application
       And the user enters "get"
       Then the download target directory should exist
       And the file "page.html" in the target directory should contain "hello world"
+
+  Rule: When the user enters the sort command, the REPL shall sort the URLs in the list alphabetically.
+
+    Scenario: Sort command orders URLs alphabetically
+      Given the REPL application is initialized
+      When the user enters "add http://example.com/gamma"
+      And the user enters "add http://example.com/alpha"
+      And the user enters "add http://example.com/beta"
+      And the user enters "sort"
+      And the user enters "list"
+      Then the output should contain "http://example.com/alpha"
+      And the output should contain "http://example.com/beta"
+      And the output should contain "http://example.com/gamma"
+
+  Rule: When the user enters the uniq command, the REPL shall remove duplicate URLs from the list while preserving their original order.
+
+    Scenario: Uniq command removes duplicates preserving first occurrence
+      Given the REPL application is initialized
+      When the user enters "add http://example.com/one"
+      And the user enters "add http://example.com/two"
+      And the user enters "add http://example.com/one"
+      And the user enters "add http://example.com/three"
+      And the user enters "add http://example.com/two"
+      And the user enters "uniq"
+      And the user enters "list"
+      Then the output should contain "http://example.com/one"
+      And the output should contain "http://example.com/two"
+      And the output should contain "http://example.com/three"
+      And the output should contain "URLoad2 [0000] (3)> "
+
+  Rule: When the user enters the href command, the REPL shall retrieve each URL in the list, extract all anchor href targets as absolute URLs, append them to the list, and remove the original URLs.
+
+    Scenario: Href command extracts link targets and replaces original URLs
+      Given a test web server serving "<a href='/about'>About</a><a href='https://external.example.com/link'>External</a>" at "/index.html"
+      And the REPL application is initialized
+      When the user enters "add <server>/index.html"
+      And the user enters "href"
+      And the user enters "list"
+      Then the output should not contain "<server>/index.html"
+      And the output should contain "<server>/about"
+      And the output should contain "https://external.example.com/link"
+
+  Rule: If retrieving a URL fails during the href command, then the REPL shall display an error message and continue processing remaining URLs.
+
+    Scenario: Href command reports error on failed URL retrieval
+      Given the REPL application is initialized
+      When the user enters "add http://127.0.0.1:1/nonexistent"
+      And the user enters "href"
+      Then the output should contain "error extracting hrefs from http://127.0.0.1:1/nonexistent"
+
+  Rule: When the user enters the img command, the REPL shall retrieve each URL in the list, extract all image src targets as absolute URLs, append them to the list, and remove the original URLs.
+
+    Scenario: Img command extracts image targets and replaces original URLs
+      Given a test web server serving "<img src='/images/pic.png'><img src='https://cdn.example.com/logo.jpg'>" at "/gallery.html"
+      And the REPL application is initialized
+      When the user enters "add <server>/gallery.html"
+      And the user enters "img"
+      And the user enters "list"
+      Then the output should not contain "<server>/gallery.html"
+      And the output should contain "<server>/images/pic.png"
+      And the output should contain "https://cdn.example.com/logo.jpg"
+
+  Rule: If retrieving a URL fails during the img command, then the REPL shall display an error message and continue processing remaining URLs.
+
+    Scenario: Img command reports error on failed URL retrieval
+      Given the REPL application is initialized
+      When the user enters "add http://127.0.0.1:1/nonexistent"
+      And the user enters "img"
+      Then the output should contain "error extracting images from http://127.0.0.1:1/nonexistent"

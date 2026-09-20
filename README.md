@@ -35,6 +35,12 @@ Available commands within the REPL:
   target directory
 - `head <n>`: Keep the first n URLs in the list, discarding the rest
 - `tail <n>`: Keep the last n URLs in the list, discarding the rest
+- `href`: For each URL in the list, retrieve it and append each `<a href>`
+  target as an absolute URL; original URLs are removed
+- `img`: For each URL in the list, retrieve it and append each `<img src>`
+  target as an absolute URL; original URLs are removed
+- `sort`: Sort the URL list alphabetically
+- `uniq`: Remove duplicate URLs from the list, preserving original order
 - `list`: Display the current list of URLs
 - `clear`: Clear the URL list
 - `help` or `?`: Display available commands

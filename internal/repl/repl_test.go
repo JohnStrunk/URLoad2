@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -157,6 +158,22 @@ func TestREPLCompletion(t *testing.T) {
 		{
 			prefix:   "he",
 			expected: []string{"head", "help"},
+		},
+		{
+			prefix:   "h",
+			expected: []string{"head", "help", "href"},
+		},
+		{
+			prefix:   "i",
+			expected: []string{"img"},
+		},
+		{
+			prefix:   "s",
+			expected: []string{"sort"},
+		},
+		{
+			prefix:   "u",
+			expected: []string{"uniq"},
 		},
 		{
 			prefix:   "?",
@@ -348,6 +365,16 @@ func TestREPLEvalWriteErrors(t *testing.T) {
 			input:       "list\n",
 			errContains: "failed to write list item",
 		},
+		{
+			name:        "href write error",
+			input:       "href\n",
+			errContains: "failed to write href error",
+		},
+		{
+			name:        "img write error",
+			input:       "img\n",
+			errContains: "failed to write img error",
+		},
 	}
 
 	for _, tt := range tests {
@@ -364,6 +391,22 @@ func TestREPLEvalWriteErrors(t *testing.T) {
 				_ = r.URLList().Add("http://example.com/item")
 			case "list write error":
 				r = repl.New(strings.NewReader(tt.input), w)
+				_ = r.URLList().Add("http://example.com/item")
+			case "href write error":
+				mockHTTP := &mockHTTPClient{
+					doFunc: func(_ *http.Request) (*http.Response, error) {
+						return nil, errors.New("network failure")
+					},
+				}
+				r = repl.New(strings.NewReader(tt.input), w, repl.WithHTTPClient(mockHTTP))
+				_ = r.URLList().Add("http://example.com/item")
+			case "img write error":
+				mockHTTP := &mockHTTPClient{
+					doFunc: func(_ *http.Request) (*http.Response, error) {
+						return nil, errors.New("network failure")
+					},
+				}
+				r = repl.New(strings.NewReader(tt.input), w, repl.WithHTTPClient(mockHTTP))
 				_ = r.URLList().Add("http://example.com/item")
 			default:
 				r = repl.New(strings.NewReader(tt.input), w)
@@ -716,14 +759,207 @@ func TestREPLOptions(t *testing.T) {
 	tempDir := t.TempDir()
 	customList := urllist.New()
 	_ = customList.Add("http://example.com/custom")
+	mockHTTP := &mockHTTPClient{}
 	r := repl.New(strings.NewReader("exit\n"), &bytes.Buffer{},
 		repl.WithBaseDir(tempDir),
 		repl.WithURLList(customList),
+		repl.WithHTTPClient(mockHTTP),
 	)
 	if r.Downloader() == nil {
 		t.Errorf("expected non-nil downloader with baseDir")
 	}
 	if r.URLList() != customList {
 		t.Errorf("expected custom URLList")
+	}
+}
+
+type mockHTTPClient struct {
+	doFunc func(req *http.Request) (*http.Response, error)
+}
+
+func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	if m.doFunc != nil {
+		return m.doFunc(req)
+	}
+	return nil, errors.New("mock http client unhandled request")
+}
+
+func TestREPLSort(t *testing.T) {
+	input := "add http://example.com/charlie\nadd http://example.com/alpha\nadd http://example.com/bravo\nsort\nlist\nexit\n"
+	var out bytes.Buffer
+
+	r := repl.New(strings.NewReader(input), &out)
+	err := r.Run(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expected := []string{
+		"http://example.com/alpha",
+		"http://example.com/bravo",
+		"http://example.com/charlie",
+	}
+	urls := r.URLList().Get()
+	if len(urls) != len(expected) {
+		t.Fatalf("expected %d urls, got %d: %v", len(expected), len(urls), urls)
+	}
+	for i, u := range urls {
+		if u != expected[i] {
+			t.Errorf("at index %d expected %q, got %q", i, expected[i], u)
+		}
+	}
+}
+
+func TestREPLUniq(t *testing.T) {
+	input := "add http://example.com/a\nadd http://example.com/b\nadd http://example.com/a\nadd http://example.com/c\nadd http://example.com/b\nuniq\nlist\nexit\n"
+	var out bytes.Buffer
+
+	r := repl.New(strings.NewReader(input), &out)
+	err := r.Run(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expected := []string{
+		"http://example.com/a",
+		"http://example.com/b",
+		"http://example.com/c",
+	}
+	urls := r.URLList().Get()
+	if len(urls) != len(expected) {
+		t.Fatalf("expected %d urls, got %d: %v", len(expected), len(urls), urls)
+	}
+	for i, u := range urls {
+		if u != expected[i] {
+			t.Errorf("at index %d expected %q, got %q", i, expected[i], u)
+		}
+	}
+}
+
+func TestREPLHref(t *testing.T) {
+	htmlContent := `<!DOCTYPE html><html><body>
+		<a href="/about">About</a>
+		<a href="https://other.com/page">External</a>
+		<a href="mailto:test@example.com">Email</a>
+	</body></html>`
+
+	mockClient := &mockHTTPClient{
+		doFunc: func(_ *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(htmlContent)),
+			}, nil
+		},
+	}
+
+	input := "add http://example.com/root\nhref\nexit\n"
+	var out bytes.Buffer
+
+	r := repl.New(strings.NewReader(input), &out, repl.WithHTTPClient(mockClient))
+	err := r.Run(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	urls := r.URLList().Get()
+	expected := []string{
+		"http://example.com/about",
+		"https://other.com/page",
+	}
+	if len(urls) != len(expected) {
+		t.Fatalf("expected %d urls, got %d: %v", len(expected), len(urls), urls)
+	}
+	for i, u := range urls {
+		if u != expected[i] {
+			t.Errorf("at index %d expected %q, got %q", i, expected[i], u)
+		}
+	}
+}
+
+func TestREPLHrefError(t *testing.T) {
+	mockClient := &mockHTTPClient{
+		doFunc: func(_ *http.Request) (*http.Response, error) {
+			return nil, errors.New("connection refused")
+		},
+	}
+
+	input := "add http://example.com/bad\nhref\nexit\n"
+	var out bytes.Buffer
+
+	r := repl.New(strings.NewReader(input), &out, repl.WithHTTPClient(mockClient))
+	err := r.Run(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.Contains(out.String(), "error extracting hrefs from http://example.com/bad") {
+		t.Errorf("expected error message in output, got %q", out.String())
+	}
+	if r.URLList().Len() != 0 {
+		t.Errorf("expected url list to be emptied after href extraction failure, got %d items", r.URLList().Len())
+	}
+}
+
+func TestREPLImg(t *testing.T) {
+	htmlContent := `<!DOCTYPE html><html><body>
+		<img src="/images/pic.png" />
+		<img src="https://cdn.example.com/banner.jpg" />
+		<img src="data:image/png;base64,iVBOR" />
+	</body></html>`
+
+	mockClient := &mockHTTPClient{
+		doFunc: func(_ *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(htmlContent)),
+			}, nil
+		},
+	}
+
+	input := "add http://example.com/gallery\nimg\nexit\n"
+	var out bytes.Buffer
+
+	r := repl.New(strings.NewReader(input), &out, repl.WithHTTPClient(mockClient))
+	err := r.Run(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	urls := r.URLList().Get()
+	expected := []string{
+		"http://example.com/images/pic.png",
+		"https://cdn.example.com/banner.jpg",
+	}
+	if len(urls) != len(expected) {
+		t.Fatalf("expected %d urls, got %d: %v", len(expected), len(urls), urls)
+	}
+	for i, u := range urls {
+		if u != expected[i] {
+			t.Errorf("at index %d expected %q, got %q", i, expected[i], u)
+		}
+	}
+}
+
+func TestREPLImgError(t *testing.T) {
+	mockClient := &mockHTTPClient{
+		doFunc: func(_ *http.Request) (*http.Response, error) {
+			return nil, errors.New("timeout connecting")
+		},
+	}
+
+	input := "add http://example.com/bad\nimg\nexit\n"
+	var out bytes.Buffer
+
+	r := repl.New(strings.NewReader(input), &out, repl.WithHTTPClient(mockClient))
+	err := r.Run(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.Contains(out.String(), "error extracting images from http://example.com/bad") {
+		t.Errorf("expected error message in output, got %q", out.String())
+	}
+	if r.URLList().Len() != 0 {
+		t.Errorf("expected url list to be emptied after img extraction failure, got %d items", r.URLList().Len())
 	}
 }

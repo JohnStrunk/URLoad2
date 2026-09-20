@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"sort"
 	"sync"
 )
 
@@ -94,4 +95,36 @@ func (l *List) Tail(n int) error {
 		l.urls = l.urls[len(l.urls)-n:]
 	}
 	return nil
+}
+
+// Sort sorts the URLs in the list alphabetically in ascending order.
+func (l *List) Sort() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	sort.Strings(l.urls)
+}
+
+// Uniq removes duplicate URLs from the list, preserving the first occurrence of each URL.
+func (l *List) Uniq() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	seen := make(map[string]bool, len(l.urls))
+	result := make([]string, 0, len(l.urls))
+	for _, u := range l.urls {
+		if !seen[u] {
+			seen[u] = true
+			result = append(result, u)
+		}
+	}
+	l.urls = result
+}
+
+// Replace replaces the list contents with the provided slice of URLs.
+func (l *List) Replace(urls []string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	copied := make([]string, len(urls))
+	copy(copied, urls)
+	l.urls = copied
 }

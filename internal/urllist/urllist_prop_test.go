@@ -132,3 +132,87 @@ func TestProperty_EARS_TailInvariants(t *testing.T) {
 		}
 	})
 }
+
+// EARS: When the user enters the sort command, the REPL shall sort all URLs in the URL list in ascending alphabetical order.
+func TestProperty_EARS_SortInvariants(t *testing.T) {
+	rapid.Check(t, func(rt *rapid.T) {
+		urls := rapid.SliceOfN(genValidURL(), 0, 30).Draw(rt, "urls")
+		l := urllist.New()
+		for _, u := range urls {
+			_ = l.Add(u)
+		}
+
+		l.Sort()
+
+		if l.Len() != len(urls) {
+			t.Fatalf("expected length %d after sort, got %d", len(urls), l.Len())
+		}
+
+		sorted := l.Get()
+		for i := 0; i < len(sorted)-1; i++ {
+			if sorted[i] > sorted[i+1] {
+				t.Fatalf("not sorted at index %d: %q > %q", i, sorted[i], sorted[i+1])
+			}
+		}
+
+		// Idempotent: sorting again should yield identical list
+		l.Sort()
+		twiceSorted := l.Get()
+		for i := range sorted {
+			if twiceSorted[i] != sorted[i] {
+				t.Fatalf("sort is not idempotent at index %d: %q != %q", i, twiceSorted[i], sorted[i])
+			}
+		}
+	})
+}
+
+// EARS: When the user enters the uniq command, the REPL shall remove all duplicate URLs from the URL list, preserving the first occurrence of each URL.
+func TestProperty_EARS_UniqInvariants(t *testing.T) {
+	rapid.Check(t, func(rt *rapid.T) {
+		pool := rapid.SliceOfN(genValidURL(), 1, 10).Draw(rt, "pool")
+		// Draw with repetition from pool
+		urls := rapid.SliceOfN(rapid.SampledFrom(pool), 0, 30).Draw(rt, "urls")
+
+		l := urllist.New()
+		for _, u := range urls {
+			_ = l.Add(u)
+		}
+
+		l.Uniq()
+
+		got := l.Get()
+
+		// 1. All elements in got must be unique
+		seen := make(map[string]bool)
+		for _, u := range got {
+			if seen[u] {
+				t.Fatalf("duplicate element %q found in uniq result", u)
+			}
+			seen[u] = true
+		}
+
+		// 2. Length must be less than or equal to original
+		if len(got) > len(urls) {
+			t.Fatalf("length after uniq %d > original %d", len(got), len(urls))
+		}
+
+		// 3. Elements must match the first occurrences in urls in order
+		expectedOrder := make([]string, 0)
+		origSeen := make(map[string]bool)
+		for _, u := range urls {
+			if !origSeen[u] {
+				origSeen[u] = true
+				expectedOrder = append(expectedOrder, u)
+			}
+		}
+
+		if len(got) != len(expectedOrder) {
+			t.Fatalf("expected len %d, got %d", len(expectedOrder), len(got))
+		}
+		for i := range expectedOrder {
+			if got[i] != expectedOrder[i] {
+				t.Fatalf("at index %d: expected %q, got %q", i, expectedOrder[i], got[i])
+			}
+		}
+	})
+}
