@@ -17,7 +17,7 @@ import (
 )
 
 // DefaultPrompt is the initial prompt displayed by urload2 when awaiting input.
-const DefaultPrompt = "urload2 [0]> "
+const DefaultPrompt = "URLoad2 [0000] (0)> "
 
 // Version is the current application version string.
 const Version = "urload2 v0.1.0-dev"
@@ -137,12 +137,16 @@ func New(in io.Reader, out io.Writer, opts ...Option) *REPL {
 	return r
 }
 
-// currentPrompt returns the prompt string including the current URL list count.
+// currentPrompt returns the prompt string formatted as "URLoad2 [nnnn] (l)> ".
 func (r *REPL) currentPrompt() string {
 	if r.prompt != "" {
 		return r.prompt
 	}
-	return fmt.Sprintf("urload2 [%d]> ", r.urlList.Len())
+	targetName := "0000"
+	if r.downloader != nil && r.downloader.TargetName() != "" {
+		targetName = r.downloader.TargetName()
+	}
+	return fmt.Sprintf("URLoad2 [%s] (%d)> ", targetName, r.urlList.Len())
 }
 
 // URLList returns the underlying urllist.List instance.

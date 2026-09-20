@@ -1,18 +1,18 @@
 Feature: urload2 REPL application
 
-  Rule: While running, when displaying the prompt, the REPL shall include the current length of the URL list.
+  Rule: While running, when displaying the prompt, the REPL shall include the directory id and the current length of the URL list.
 
     Scenario: Prompt displays initial count of zero
       Given the REPL application is initialized
       When the REPL is started with no input
-      Then the output should contain "urload2 [0]> "
+      Then the output should contain "URLoad2 [0000] (0)> "
 
     Scenario: Prompt updates dynamically as URLs are added
       Given the REPL application is initialized
       When the user enters "add http://example.com/1"
       And the user enters "add http://example.com/2"
-      Then the output should contain "urload2 [1]> "
-      And the output should contain "urload2 [2]> "
+      Then the output should contain "URLoad2 [0000] (1)> "
+      And the output should contain "URLoad2 [0000] (2)> "
 
   Rule: While running, when the user inputs the exit command, the REPL shall terminate gracefully.
 
@@ -113,7 +113,7 @@ Feature: urload2 REPL application
       Given the REPL application is initialized
       When the user enters "add http://example.com/item1"
       And the user enters "clear"
-      Then the output should contain "urload2 [0]> "
+      Then the output should contain "URLoad2 [0000] (0)> "
 
   Rule: When the user enters the head command with a count, the REPL shall keep the first n URLs in the list and discard the rest.
 

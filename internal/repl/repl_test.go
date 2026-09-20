@@ -468,14 +468,30 @@ func TestREPLPromptUpdatesWithCount(t *testing.T) {
 	}
 
 	output := out.String()
-	if !strings.Contains(output, "urload2 [0]> ") {
-		t.Errorf("expected urload2 [0]> in output, got %q", output)
+	if !strings.Contains(output, "URLoad2 [0000] (0)> ") {
+		t.Errorf("expected URLoad2 [0000] (0)> in output, got %q", output)
 	}
-	if !strings.Contains(output, "urload2 [1]> ") {
-		t.Errorf("expected urload2 [1]> in output, got %q", output)
+	if !strings.Contains(output, "URLoad2 [0000] (1)> ") {
+		t.Errorf("expected URLoad2 [0000] (1)> in output, got %q", output)
 	}
-	if !strings.Contains(output, "urload2 [2]> ") {
-		t.Errorf("expected urload2 [2]> in output, got %q", output)
+	if !strings.Contains(output, "URLoad2 [0000] (2)> ") {
+		t.Errorf("expected URLoad2 [0000] (2)> in output, got %q", output)
+	}
+}
+
+func TestREPLPromptIncludesTargetDirectory(t *testing.T) {
+	mockDL := &mockDownloader{targetName: "0007", targetPath: "/tmp/0007"}
+	var out bytes.Buffer
+
+	r := repl.New(strings.NewReader("exit\n"), &out, repl.WithDownloader(mockDL))
+	err := r.Run(context.Background())
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+
+	output := out.String()
+	if !strings.Contains(output, "URLoad2 [0007] (0)> ") {
+		t.Errorf("expected URLoad2 [0007] (0)> in output, got %q", output)
 	}
 }
 
