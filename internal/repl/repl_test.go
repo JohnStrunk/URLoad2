@@ -375,6 +375,26 @@ func TestREPLEvalWriteErrors(t *testing.T) {
 			input:       "img\n",
 			errContains: "failed to write img error",
 		},
+		{
+			name:        "href http error write error",
+			input:       "href\n",
+			errContains: "failed to write href output",
+		},
+		{
+			name:        "img http error write error",
+			input:       "img\n",
+			errContains: "failed to write img output",
+		},
+		{
+			name:        "href success write error",
+			input:       "href\n",
+			errContains: "failed to write href output",
+		},
+		{
+			name:        "img success write error",
+			input:       "img\n",
+			errContains: "failed to write img output",
+		},
 	}
 
 	for _, tt := range tests {
@@ -404,6 +424,50 @@ func TestREPLEvalWriteErrors(t *testing.T) {
 				mockHTTP := &mockHTTPClient{
 					doFunc: func(_ *http.Request) (*http.Response, error) {
 						return nil, errors.New("network failure")
+					},
+				}
+				r = repl.New(strings.NewReader(tt.input), w, repl.WithHTTPClient(mockHTTP))
+				_ = r.URLList().Add("http://example.com/item")
+			case "href http error write error":
+				mockHTTP := &mockHTTPClient{
+					doFunc: func(_ *http.Request) (*http.Response, error) {
+						return &http.Response{
+							StatusCode: http.StatusNotFound,
+							Body:       io.NopCloser(strings.NewReader("404")),
+						}, nil
+					},
+				}
+				r = repl.New(strings.NewReader(tt.input), w, repl.WithHTTPClient(mockHTTP))
+				_ = r.URLList().Add("http://example.com/item")
+			case "img http error write error":
+				mockHTTP := &mockHTTPClient{
+					doFunc: func(_ *http.Request) (*http.Response, error) {
+						return &http.Response{
+							StatusCode: http.StatusNotFound,
+							Body:       io.NopCloser(strings.NewReader("404")),
+						}, nil
+					},
+				}
+				r = repl.New(strings.NewReader(tt.input), w, repl.WithHTTPClient(mockHTTP))
+				_ = r.URLList().Add("http://example.com/item")
+			case "href success write error":
+				mockHTTP := &mockHTTPClient{
+					doFunc: func(_ *http.Request) (*http.Response, error) {
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(strings.NewReader("<a href='/link'>Link</a>")),
+						}, nil
+					},
+				}
+				r = repl.New(strings.NewReader(tt.input), w, repl.WithHTTPClient(mockHTTP))
+				_ = r.URLList().Add("http://example.com/item")
+			case "img success write error":
+				mockHTTP := &mockHTTPClient{
+					doFunc: func(_ *http.Request) (*http.Response, error) {
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(strings.NewReader("<img src='/img.png'>")),
+						}, nil
 					},
 				}
 				r = repl.New(strings.NewReader(tt.input), w, repl.WithHTTPClient(mockHTTP))
@@ -874,6 +938,9 @@ func TestREPLHref(t *testing.T) {
 			t.Errorf("at index %d expected %q, got %q", i, expected[i], u)
 		}
 	}
+	if !strings.Contains(out.String(), "Scanning http://example.com/root => 200 (found 2)") {
+		t.Errorf("expected scanning output in %q", out.String())
+	}
 }
 
 func TestREPLHrefError(t *testing.T) {
@@ -892,11 +959,38 @@ func TestREPLHrefError(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !strings.Contains(out.String(), "error extracting hrefs from http://example.com/bad") {
+	if !strings.Contains(out.String(), "Scanning http://example.com/bad => error:") || !strings.Contains(out.String(), "connection refused") {
 		t.Errorf("expected error message in output, got %q", out.String())
 	}
 	if r.URLList().Len() != 0 {
 		t.Errorf("expected url list to be emptied after href extraction failure, got %d items", r.URLList().Len())
+	}
+}
+
+func TestREPLHrefHTTPError(t *testing.T) {
+	mockClient := &mockHTTPClient{
+		doFunc: func(_ *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusNotFound,
+				Body:       io.NopCloser(strings.NewReader("404 page not found")),
+			}, nil
+		},
+	}
+
+	input := "add http://example.com/404\nhref\nexit\n"
+	var out bytes.Buffer
+
+	r := repl.New(strings.NewReader(input), &out, repl.WithHTTPClient(mockClient))
+	err := r.Run(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.Contains(out.String(), "Scanning http://example.com/404 => 404") {
+		t.Errorf("expected 404 scanning message in output, got %q", out.String())
+	}
+	if r.URLList().Len() != 0 {
+		t.Errorf("expected url list to be emptied after 404, got %d items", r.URLList().Len())
 	}
 }
 
@@ -938,6 +1032,9 @@ func TestREPLImg(t *testing.T) {
 			t.Errorf("at index %d expected %q, got %q", i, expected[i], u)
 		}
 	}
+	if !strings.Contains(out.String(), "Scanning http://example.com/gallery => 200 (found 2)") {
+		t.Errorf("expected scanning output in %q", out.String())
+	}
 }
 
 func TestREPLImgError(t *testing.T) {
@@ -956,10 +1053,37 @@ func TestREPLImgError(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !strings.Contains(out.String(), "error extracting images from http://example.com/bad") {
+	if !strings.Contains(out.String(), "Scanning http://example.com/bad => error:") || !strings.Contains(out.String(), "timeout connecting") {
 		t.Errorf("expected error message in output, got %q", out.String())
 	}
 	if r.URLList().Len() != 0 {
 		t.Errorf("expected url list to be emptied after img extraction failure, got %d items", r.URLList().Len())
+	}
+}
+
+func TestREPLImgHTTPError(t *testing.T) {
+	mockClient := &mockHTTPClient{
+		doFunc: func(_ *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusNotFound,
+				Body:       io.NopCloser(strings.NewReader("404 not found")),
+			}, nil
+		},
+	}
+
+	input := "add http://example.com/404\nimg\nexit\n"
+	var out bytes.Buffer
+
+	r := repl.New(strings.NewReader(input), &out, repl.WithHTTPClient(mockClient))
+	err := r.Run(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.Contains(out.String(), "Scanning http://example.com/404 => 404") {
+		t.Errorf("expected 404 scanning message in output, got %q", out.String())
+	}
+	if r.URLList().Len() != 0 {
+		t.Errorf("expected url list to be emptied after 404, got %d items", r.URLList().Len())
 	}
 }

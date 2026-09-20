@@ -205,11 +205,13 @@ func TestDownloadFailureContinues(t *testing.T) {
 	}
 
 	output := buf.String()
-	if !strings.Contains(output, "error downloading") {
-		t.Errorf("expected error message in output, got: %s", output)
+	expected404 := fmt.Sprintf("Downloading %s/fail => 404", ts.URL)
+	if !strings.Contains(output, expected404) {
+		t.Errorf("expected 404 message in output %q, got: %s", expected404, output)
 	}
-	if !strings.Contains(output, "Downloaded") {
-		t.Errorf("expected success message in output, got: %s", output)
+	expectedGood := fmt.Sprintf("Downloading %s/good.html => 200 [good.html]", ts.URL)
+	if !strings.Contains(output, expectedGood) {
+		t.Errorf("expected success message in output %q, got: %s", expectedGood, output)
 	}
 
 	// Good file should exist
@@ -242,7 +244,7 @@ func TestDownloadNetworkError(t *testing.T) {
 		t.Fatalf("unexpected top-level error: %v", err)
 	}
 
-	if !strings.Contains(buf.String(), "error downloading") {
+	if !strings.Contains(buf.String(), "Downloading http://broken.test/test => error: connection refused") {
 		t.Fatalf("expected error output, got %q", buf.String())
 	}
 }
@@ -340,8 +342,41 @@ func TestDownloadOneInvalidURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil top-level error on per-URL failure, got %v", err)
 	}
-	if !strings.Contains(buf.String(), "error downloading") {
+	if !strings.Contains(buf.String(), "Downloading ://invalid-url => error:") {
 		t.Fatalf("expected error message in output, got: %s", buf.String())
+	}
+}
+
+func TestDownloadOneWriteErrors(t *testing.T) {
+	tempDir := t.TempDir()
+	dl, err := downloader.New(downloader.WithBaseDir(tempDir))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expectedErr := errors.New("cannot write")
+	err = dl.DownloadAll(context.Background(), []string{"://invalid-url"}, &errWriter{err: expectedErr})
+	if !errors.Is(err, expectedErr) {
+		t.Fatalf("expected write error on invalid url, got %v", err)
+	}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/404" {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		fmt.Fprintln(w, "ok")
+	}))
+	defer ts.Close()
+
+	err = dl.DownloadAll(context.Background(), []string{ts.URL + "/404"}, &errWriter{err: expectedErr})
+	if !errors.Is(err, expectedErr) {
+		t.Fatalf("expected write error on 404, got %v", err)
+	}
+
+	err = dl.DownloadAll(context.Background(), []string{ts.URL + "/200"}, &errWriter{err: expectedErr})
+	if !errors.Is(err, expectedErr) {
+		t.Fatalf("expected write error on 200, got %v", err)
 	}
 }
 

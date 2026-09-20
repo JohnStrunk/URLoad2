@@ -46,29 +46,30 @@ func ResolveURL(baseRaw, targetRaw string) (string, bool) {
 }
 
 // ExtractTargets fetches the HTML at pageURL and extracts all attribute values matching targetTag and targetAttr.
-func ExtractTargets(ctx context.Context, client HTTPGetter, pageURL, targetTag, targetAttr string) ([]string, error) {
+// It returns the extracted targets, the HTTP status code, and any error encountered.
+func ExtractTargets(ctx context.Context, client HTTPGetter, pageURL, targetTag, targetAttr string) ([]string, int, error) {
 	if client == nil {
 		client = &http.Client{Timeout: 30 * time.Second}
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pageURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request for %s: %w", pageURL, err)
+		return nil, 0, fmt.Errorf("failed to create request for %s: %w", pageURL, err)
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch %s: %w", pageURL, err)
+		return nil, 0, fmt.Errorf("failed to fetch %s: %w", pageURL, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("HTTP status %d %s", resp.StatusCode, resp.Status)
+		return nil, resp.StatusCode, fmt.Errorf("HTTP status %d %s", resp.StatusCode, resp.Status)
 	}
 
 	doc, err := html.Parse(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse HTML from %s: %w", pageURL, err)
+		return nil, resp.StatusCode, fmt.Errorf("failed to parse HTML from %s: %w", pageURL, err)
 	}
 
 	var results []string
@@ -89,15 +90,15 @@ func ExtractTargets(ctx context.Context, client HTTPGetter, pageURL, targetTag, 
 	}
 
 	traverse(doc)
-	return results, nil
+	return results, resp.StatusCode, nil
 }
 
 // ExtractHrefs extracts all anchor href targets from pageURL normalized as absolute URLs.
-func ExtractHrefs(ctx context.Context, client HTTPGetter, pageURL string) ([]string, error) {
+func ExtractHrefs(ctx context.Context, client HTTPGetter, pageURL string) ([]string, int, error) {
 	return ExtractTargets(ctx, client, pageURL, "a", "href")
 }
 
 // ExtractImgs extracts all image src targets from pageURL normalized as absolute URLs.
-func ExtractImgs(ctx context.Context, client HTTPGetter, pageURL string) ([]string, error) {
+func ExtractImgs(ctx context.Context, client HTTPGetter, pageURL string) ([]string, int, error) {
 	return ExtractTargets(ctx, client, pageURL, "img", "src")
 }

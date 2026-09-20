@@ -127,9 +127,12 @@ func TestExtractHrefs(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	urls, err := extractor.ExtractHrefs(context.Background(), nil, ts.URL+"/sub/")
+	urls, status, err := extractor.ExtractHrefs(context.Background(), nil, ts.URL+"/sub/")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	if status != http.StatusOK {
+		t.Errorf("expected status %d, got %d", http.StatusOK, status)
 	}
 
 	expected := []string{
@@ -172,9 +175,12 @@ func TestExtractImgs(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	urls, err := extractor.ExtractImgs(context.Background(), ts.Client(), ts.URL+"/dir/page.html")
+	urls, status, err := extractor.ExtractImgs(context.Background(), ts.Client(), ts.URL+"/dir/page.html")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	if status != http.StatusOK {
+		t.Errorf("expected status %d, got %d", http.StatusOK, status)
 	}
 
 	expected := []string{
@@ -201,9 +207,12 @@ func TestExtractHTTPError(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	_, err := extractor.ExtractHrefs(context.Background(), ts.Client(), ts.URL+"/missing")
+	_, status, err := extractor.ExtractHrefs(context.Background(), ts.Client(), ts.URL+"/missing")
 	if err == nil {
 		t.Fatal("expected error on 404, got nil")
+	}
+	if status != http.StatusNotFound {
+		t.Errorf("expected status %d, got %d", http.StatusNotFound, status)
 	}
 }
 
@@ -217,15 +226,21 @@ func (e *errClient) Do(_ *http.Request) (*http.Response, error) {
 
 func TestExtractNetworkError(t *testing.T) {
 	client := &errClient{err: errors.New("connection failed")}
-	_, err := extractor.ExtractHrefs(context.Background(), client, "http://example.com")
+	_, status, err := extractor.ExtractHrefs(context.Background(), client, "http://example.com")
 	if err == nil {
 		t.Fatal("expected error on network failure, got nil")
+	}
+	if status != 0 {
+		t.Errorf("expected status 0 on network failure, got %d", status)
 	}
 }
 
 func TestExtractInvalidURL(t *testing.T) {
-	_, err := extractor.ExtractHrefs(context.Background(), nil, "://bad-url")
+	_, status, err := extractor.ExtractHrefs(context.Background(), nil, "://bad-url")
 	if err == nil {
 		t.Fatal("expected error on invalid URL, got nil")
+	}
+	if status != 0 {
+		t.Errorf("expected status 0 on invalid URL, got %d", status)
 	}
 }

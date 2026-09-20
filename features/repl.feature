@@ -186,6 +186,14 @@ Feature: urload2 REPL application
       And the user enters "get"
       Then the download target directory should exist
       And the file "page.html" in the target directory should contain "hello world"
+      And the output should contain "Downloading <server>/page.html => 200 [page.html]"
+
+    Scenario: Get command reports status code when download is not found
+      Given a test web server responding with 404 at "/nope.png"
+      And the REPL application is initialized
+      When the user enters "add <server>/nope.png"
+      And the user enters "get"
+      Then the output should contain "Downloading <server>/nope.png => 404"
 
   Rule: When the user enters the sort command, the REPL shall sort the URLs in the list alphabetically.
 
@@ -224,9 +232,17 @@ Feature: urload2 REPL application
       When the user enters "add <server>/index.html"
       And the user enters "href"
       And the user enters "list"
-      Then the output should not contain "<server>/index.html"
+      Then the output should contain "Scanning <server>/index.html => 200 (found 2)"
+      And the URL list should not contain "<server>/index.html"
       And the output should contain "<server>/about"
       And the output should contain "https://external.example.com/link"
+
+    Scenario: Href command reports status code when target URL is not found
+      Given a test web server responding with 404 at "/nothere"
+      And the REPL application is initialized
+      When the user enters "add <server>/nothere"
+      And the user enters "href"
+      Then the output should contain "Scanning <server>/nothere => 404"
 
   Rule: If retrieving a URL fails during the href command, then the REPL shall display an error message and continue processing remaining URLs.
 
@@ -234,7 +250,7 @@ Feature: urload2 REPL application
       Given the REPL application is initialized
       When the user enters "add http://127.0.0.1:1/nonexistent"
       And the user enters "href"
-      Then the output should contain "error extracting hrefs from http://127.0.0.1:1/nonexistent"
+      Then the output should contain "Scanning http://127.0.0.1:1/nonexistent => error:"
 
   Rule: When the user enters the img command, the REPL shall retrieve each URL in the list, extract all image src targets as absolute URLs, append them to the list, and remove the original URLs.
 
@@ -244,9 +260,17 @@ Feature: urload2 REPL application
       When the user enters "add <server>/gallery.html"
       And the user enters "img"
       And the user enters "list"
-      Then the output should not contain "<server>/gallery.html"
+      Then the output should contain "Scanning <server>/gallery.html => 200 (found 2)"
+      And the URL list should not contain "<server>/gallery.html"
       And the output should contain "<server>/images/pic.png"
       And the output should contain "https://cdn.example.com/logo.jpg"
+
+    Scenario: Img command reports status code when target URL is not found
+      Given a test web server responding with 404 at "/nothere"
+      And the REPL application is initialized
+      When the user enters "add <server>/nothere"
+      And the user enters "img"
+      Then the output should contain "Scanning <server>/nothere => 404"
 
   Rule: If retrieving a URL fails during the img command, then the REPL shall display an error message and continue processing remaining URLs.
 
@@ -254,4 +278,4 @@ Feature: urload2 REPL application
       Given the REPL application is initialized
       When the user enters "add http://127.0.0.1:1/nonexistent"
       And the user enters "img"
-      Then the output should contain "error extracting images from http://127.0.0.1:1/nonexistent"
+      Then the output should contain "Scanning http://127.0.0.1:1/nonexistent => error:"

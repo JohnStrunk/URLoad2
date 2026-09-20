@@ -221,11 +221,8 @@ func (d *Downloader) DownloadAll(ctx context.Context, urls []string, out io.Writ
 		default:
 		}
 
-		err := d.downloadOne(ctx, rawURL, usedNames, out)
-		if err != nil {
-			if _, writeErr := fmt.Fprintf(out, "error downloading %s: %v\n", rawURL, err); writeErr != nil {
-				return writeErr
-			}
+		if err := d.downloadOne(ctx, rawURL, usedNames, out); err != nil {
+			return err
 		}
 	}
 
@@ -235,17 +232,26 @@ func (d *Downloader) DownloadAll(ctx context.Context, urls []string, out io.Writ
 func (d *Downloader) downloadOne(ctx context.Context, rawURL string, usedNames map[string]bool, out io.Writer) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
-		return err
+		if _, writeErr := fmt.Fprintf(out, "Downloading %s => error: %v\n", rawURL, err); writeErr != nil {
+			return writeErr
+		}
+		return nil
 	}
 
 	resp, err := d.client.Do(req)
 	if err != nil {
-		return err
+		if _, writeErr := fmt.Fprintf(out, "Downloading %s => error: %v\n", rawURL, err); writeErr != nil {
+			return writeErr
+		}
+		return nil
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("HTTP status %d %s", resp.StatusCode, resp.Status)
+		if _, writeErr := fmt.Fprintf(out, "Downloading %s => %d\n", rawURL, resp.StatusCode); writeErr != nil {
+			return writeErr
+		}
+		return nil
 	}
 
 	baseName := sanitizeFilename(rawURL)
@@ -254,15 +260,21 @@ func (d *Downloader) downloadOne(ctx context.Context, rawURL string, usedNames m
 
 	file, err := os.Create(destPath)
 	if err != nil {
-		return fmt.Errorf("failed to create file %s: %w", fileName, err)
+		if _, writeErr := fmt.Fprintf(out, "Downloading %s => %d (error creating file: %v)\n", rawURL, resp.StatusCode, err); writeErr != nil {
+			return writeErr
+		}
+		return nil
 	}
 	defer file.Close()
 
 	if _, err := io.Copy(file, resp.Body); err != nil {
-		return fmt.Errorf("failed to write content to %s: %w", fileName, err)
+		if _, writeErr := fmt.Fprintf(out, "Downloading %s => %d (error writing file: %v)\n", rawURL, resp.StatusCode, err); writeErr != nil {
+			return writeErr
+		}
+		return nil
 	}
 
-	if _, err := fmt.Fprintf(out, "Downloaded %s -> %s\n", rawURL, filepath.Join(d.targetName, fileName)); err != nil {
+	if _, err := fmt.Fprintf(out, "Downloading %s => %d [%s]\n", rawURL, resp.StatusCode, fileName); err != nil {
 		return err
 	}
 

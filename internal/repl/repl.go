@@ -412,12 +412,21 @@ func (r *REPL) eval(ctx context.Context, line string) (bool, error) {
 		current := r.urlList.Get()
 		var newURLs []string
 		for _, u := range current {
-			targets, err := extractor.ExtractHrefs(ctx, r.httpClient, u)
+			targets, statusCode, err := extractor.ExtractHrefs(ctx, r.httpClient, u)
 			if err != nil {
-				if _, writeErr := fmt.Fprintf(r.out, "error extracting hrefs from %s: %v\n", u, err); writeErr != nil {
-					return false, fmt.Errorf("failed to write href error: %w", writeErr)
+				if statusCode > 0 {
+					if _, writeErr := fmt.Fprintf(r.out, "Scanning %s => %d\n", u, statusCode); writeErr != nil {
+						return false, fmt.Errorf("failed to write href output: %w", writeErr)
+					}
+				} else {
+					if _, writeErr := fmt.Fprintf(r.out, "Scanning %s => error: %v\n", u, err); writeErr != nil {
+						return false, fmt.Errorf("failed to write href error: %w", writeErr)
+					}
 				}
 				continue
+			}
+			if _, writeErr := fmt.Fprintf(r.out, "Scanning %s => %d (found %d)\n", u, statusCode, len(targets)); writeErr != nil {
+				return false, fmt.Errorf("failed to write href output: %w", writeErr)
 			}
 			newURLs = append(newURLs, targets...)
 		}
@@ -428,12 +437,21 @@ func (r *REPL) eval(ctx context.Context, line string) (bool, error) {
 		current := r.urlList.Get()
 		var newURLs []string
 		for _, u := range current {
-			targets, err := extractor.ExtractImgs(ctx, r.httpClient, u)
+			targets, statusCode, err := extractor.ExtractImgs(ctx, r.httpClient, u)
 			if err != nil {
-				if _, writeErr := fmt.Fprintf(r.out, "error extracting images from %s: %v\n", u, err); writeErr != nil {
-					return false, fmt.Errorf("failed to write img error: %w", writeErr)
+				if statusCode > 0 {
+					if _, writeErr := fmt.Fprintf(r.out, "Scanning %s => %d\n", u, statusCode); writeErr != nil {
+						return false, fmt.Errorf("failed to write img output: %w", writeErr)
+					}
+				} else {
+					if _, writeErr := fmt.Fprintf(r.out, "Scanning %s => error: %v\n", u, err); writeErr != nil {
+						return false, fmt.Errorf("failed to write img error: %w", writeErr)
+					}
 				}
 				continue
+			}
+			if _, writeErr := fmt.Fprintf(r.out, "Scanning %s => %d (found %d)\n", u, statusCode, len(targets)); writeErr != nil {
+				return false, fmt.Errorf("failed to write img output: %w", writeErr)
 			}
 			newURLs = append(newURLs, targets...)
 		}

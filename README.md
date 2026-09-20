@@ -52,6 +52,12 @@ length of the URL list (e.g., `URLoad2 [0000] (0)>`).
 On startup, the REPL determines its download target directory (a 4-digit
 numbered subdirectory of cwd, e.g. `0000`). The target directory is created
 upon the first `get` command.
+When fetching URLs, progress and HTTP response codes are displayed in real
+time:
+
+- Scanning (`href`/`img`): `Scanning <url> => 200 (found 4)` (or status code)
+- Downloading (`get`): `Downloading <url> => 200 [file.png]` (or status code)
+
 The REPL supports tab completion for all commands.
 
 ## Testing

@@ -19,15 +19,16 @@ import (
 )
 
 type replFeature struct {
-	in           *bytes.Buffer
-	out          *bytes.Buffer
-	err          error
-	completions  []string
-	workingDir   string
-	server       *httptest.Server
-	serverRoutes map[string]string
-	urlList      *urllist.List
-	downloader   *downloader.Downloader
+	in             *bytes.Buffer
+	out            *bytes.Buffer
+	err            error
+	completions    []string
+	workingDir     string
+	server         *httptest.Server
+	serverRoutes   map[string]string
+	serverStatuses map[string]int
+	urlList        *urllist.List
+	downloader     *downloader.Downloader
 }
 
 func (r *replFeature) reset() {
@@ -36,6 +37,7 @@ func (r *replFeature) reset() {
 		r.server = nil
 	}
 	r.serverRoutes = nil
+	r.serverStatuses = nil
 	if r.workingDir != "" {
 		_ = os.RemoveAll(r.workingDir)
 		r.workingDir = ""
@@ -199,10 +201,15 @@ func (r *replFeature) theDownloadTargetDirectoryShouldExist() error {
 	return nil
 }
 
-func (r *replFeature) aTestWebServerServingAt(content, path string) error {
+func (r *replFeature) ensureServer() {
 	if r.server == nil {
 		r.serverRoutes = make(map[string]string)
+		r.serverStatuses = make(map[string]int)
 		r.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			if status, ok := r.serverStatuses[req.URL.Path]; ok && status != http.StatusOK {
+				http.Error(w, http.StatusText(status), status)
+				return
+			}
 			if body, ok := r.serverRoutes[req.URL.Path]; ok {
 				fmt.Fprint(w, body)
 				return
@@ -210,7 +217,30 @@ func (r *replFeature) aTestWebServerServingAt(content, path string) error {
 			http.NotFound(w, req)
 		}))
 	}
+}
+
+func (r *replFeature) aTestWebServerServingAt(content, path string) error {
+	r.ensureServer()
 	r.serverRoutes[path] = content
+	r.serverStatuses[path] = http.StatusOK
+	return nil
+}
+
+func (r *replFeature) aTestWebServerRespondingWithAt(statusCode int, path string) error {
+	r.ensureServer()
+	r.serverStatuses[path] = statusCode
+	return nil
+}
+
+func (r *replFeature) theURLListShouldNotContain(expected string) error {
+	if r.server != nil {
+		expected = strings.ReplaceAll(expected, "<server>", r.server.URL)
+	}
+	for _, u := range r.urlList.Get() {
+		if u == expected {
+			return fmt.Errorf("expected URL list to not contain %q, but found in %v", expected, r.urlList.Get())
+		}
+	}
 	return nil
 }
 
@@ -254,6 +284,8 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the download target directory should not exist$`, rf.theDownloadTargetDirectoryShouldNotExist)
 	ctx.Step(`^the download target directory should exist$`, rf.theDownloadTargetDirectoryShouldExist)
 	ctx.Step(`^a test web server serving "([^"]*)" at "([^"]*)"$`, rf.aTestWebServerServingAt)
+	ctx.Step(`^a test web server responding with (\d+) at "([^"]*)"$`, rf.aTestWebServerRespondingWithAt)
+	ctx.Step(`^the URL list should not contain "([^"]*)"$`, rf.theURLListShouldNotContain)
 	ctx.Step(`^the file "([^"]*)" in the target directory should contain "([^"]*)"$`, rf.theFileInTheTargetDirectoryShouldContain)
 }
 
