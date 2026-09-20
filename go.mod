@@ -3,9 +3,13 @@ module github.com/JohnStrunk/URLoad2
 go 1.24.0
 
 require (
-	github.com/chzyer/readline v1.5.1 // indirect
+	github.com/chzyer/readline v1.5.1
+	github.com/cucumber/godog v0.15.0
+	pgregory.net/rapid v1.3.0
+)
+
+require (
 	github.com/cucumber/gherkin/go/v26 v26.2.0 // indirect
-	github.com/cucumber/godog v0.15.0 // indirect
 	github.com/cucumber/messages/go/v21 v21.0.1 // indirect
 	github.com/gofrs/uuid v4.3.1+incompatible // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
