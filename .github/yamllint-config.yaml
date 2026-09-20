@@ -18,4 +18,4 @@ rules:
   line-length:
     allow-non-breakable-inline-mappings: true
   new-lines:
-    type: platform
+    type: unix

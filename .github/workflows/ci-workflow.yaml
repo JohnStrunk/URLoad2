@@ -56,12 +56,64 @@ jobs:
       - name: Run pre-commit gc
         run: pre-commit gc
 
+  test:
+    name: "Test (Go & godog)"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        # https://github.com/actions/checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          submodules: "recursive"
+
+      - name: Set up Go
+        # https://github.com/actions/setup-go
+        # zizmor: ignore[cache-poisoning]
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: "go.mod"
+          cache: true
+
+      - name: Run tests
+        run: go test -v -race ./...
+
+  build:
+    name: "Build urload2 binary"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        # https://github.com/actions/checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          submodules: "recursive"
+
+      - name: Set up Go
+        # https://github.com/actions/setup-go
+        # zizmor: ignore[cache-poisoning]
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: "go.mod"
+          cache: true
+
+      - name: Build static binary
+        env:
+          CGO_ENABLED: 0
+        run: |
+          go build -ldflags="-s -w" -o bin/urload2 ./cmd/urload2
+          file bin/urload2
+
   # This is a dummy job to determine success of the CI workflow
   ci-success:
     name: CI Workflow - Success
     if: always()
     needs:
       - pre-commit
+      - test
+      - build
     runs-on: ubuntu-latest
     steps:
       - name: Check all jobs

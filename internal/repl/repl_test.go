@@ -1,0 +1,185 @@
+package repl_test
+
+import (
+	"bytes"
+	"context"
+	"strings"
+	"testing"
+
+	"github.com/JohnStrunk/URLoad2/internal/repl"
+)
+
+func TestREPLExit(t *testing.T) {
+	input := "exit\n"
+	var out bytes.Buffer
+
+	r := repl.New(strings.NewReader(input), &out)
+	err := r.Run(context.Background())
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+
+	output := out.String()
+	if !strings.Contains(output, repl.DefaultPrompt) {
+		t.Errorf("expected prompt in output, got %q", output)
+	}
+	if !strings.Contains(output, "Goodbye!") {
+		t.Errorf("expected Goodbye! in output, got %q", output)
+	}
+}
+
+func TestREPLQuit(t *testing.T) {
+	input := "quit\n"
+	var out bytes.Buffer
+
+	r := repl.New(strings.NewReader(input), &out)
+	err := r.Run(context.Background())
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+
+	output := out.String()
+	if !strings.Contains(output, "Goodbye!") {
+		t.Errorf("expected Goodbye! in output, got %q", output)
+	}
+}
+
+func TestREPLHelp(t *testing.T) {
+	input := "help\nexit\n"
+	var out bytes.Buffer
+
+	r := repl.New(strings.NewReader(input), &out)
+	err := r.Run(context.Background())
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+
+	output := out.String()
+	if !strings.Contains(output, "Available commands:") {
+		t.Errorf("expected help output, got %q", output)
+	}
+	if !strings.Contains(output, "help, ?") {
+		t.Errorf("expected 'help, ?' in output, got %q", output)
+	}
+}
+
+func TestREPLQuestionMarkAlias(t *testing.T) {
+	input := "?\nexit\n"
+	var out bytes.Buffer
+
+	r := repl.New(strings.NewReader(input), &out)
+	err := r.Run(context.Background())
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+
+	output := out.String()
+	if !strings.Contains(output, "Available commands:") {
+		t.Errorf("expected help output for '?', got %q", output)
+	}
+	if !strings.Contains(output, "help, ?") {
+		t.Errorf("expected 'help, ?' in output, got %q", output)
+	}
+}
+
+func TestREPLVersion(t *testing.T) {
+	input := "version\nexit\n"
+	var out bytes.Buffer
+
+	r := repl.New(strings.NewReader(input), &out)
+	err := r.Run(context.Background())
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+
+	output := out.String()
+	if !strings.Contains(output, repl.Version) {
+		t.Errorf("expected version output, got %q", output)
+	}
+}
+
+func TestREPLUnknownCommand(t *testing.T) {
+	input := "foobar\nexit\n"
+	var out bytes.Buffer
+
+	r := repl.New(strings.NewReader(input), &out)
+	err := r.Run(context.Background())
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+
+	output := out.String()
+	if !strings.Contains(output, `unknown command: "foobar"`) {
+		t.Errorf("expected unknown command error, got %q", output)
+	}
+}
+
+func TestREPLEOF(t *testing.T) {
+	input := ""
+	var out bytes.Buffer
+
+	r := repl.New(strings.NewReader(input), &out)
+	err := r.Run(context.Background())
+	if err != nil {
+		t.Fatalf("expected nil error on EOF, got %v", err)
+	}
+
+	output := out.String()
+	if output != repl.DefaultPrompt {
+		t.Errorf("expected only prompt on EOF, got %q", output)
+	}
+}
+
+func TestREPLCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	input := "help\n"
+	var out bytes.Buffer
+
+	r := repl.New(strings.NewReader(input), &out)
+	err := r.Run(ctx)
+	if err != context.Canceled {
+		t.Fatalf("expected context.Canceled, got %v", err)
+	}
+}
+
+func TestREPLCompletion(t *testing.T) {
+	tests := []struct {
+		prefix   string
+		expected []string
+	}{
+		{
+			prefix:   "he",
+			expected: []string{"help"},
+		},
+		{
+			prefix:   "?",
+			expected: []string{"?"},
+		},
+		{
+			prefix:   "v",
+			expected: []string{"version"},
+		},
+		{
+			prefix:   "nonexistent",
+			expected: nil,
+		},
+		{
+			prefix:   "",
+			expected: []string{"help", "?", "version", "exit", "quit"},
+		},
+	}
+
+	for _, tt := range tests {
+		matches := repl.Complete(tt.prefix)
+		if len(matches) != len(tt.expected) {
+			t.Fatalf("for prefix %q, expected %d matches, got %d: %v", tt.prefix, len(tt.expected), len(matches), matches)
+		}
+		for i, exp := range tt.expected {
+			if matches[i] != exp {
+				t.Errorf("for prefix %q index %d, expected %q, got %q", tt.prefix, i, exp, matches[i])
+			}
+		}
+	}
+}
