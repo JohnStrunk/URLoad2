@@ -6,6 +6,7 @@ URLoad2 is a statically linked Go REPL (Read-Eval-Print Loop) application.
 
 - **Language:** Go
 - **Binary:** Statically linked executable (`CGO_ENABLED=0`)
+- **Interactive:** Terminal line editing with tab completion support
 - **Spec-Driven:** Functionality specified via EARS (Easy Approach to
   Requirements Syntax) in Gherkin feature files executed with `godog`
 - **Quality & CI:** Automated linting via `pre-commit` and `golangci-lint`, with
@@ -29,9 +30,11 @@ Run the interactive REPL:
 
 Available commands within the REPL:
 
-- `help`: Display available commands
+- `help` or `?`: Display available commands
 - `version`: Display version information
 - `exit` or `quit`: Terminate the REPL session
+
+The REPL supports tab completion for all commands.
 
 ## Testing
 
